@@ -50,9 +50,13 @@ function doTranscode(relayPort) {
         }
     
         let newArgs = process.argv.slice(2).map((v) => {
-            return v
-                .replace(`127.0.0.1:${PMS_PORT}`, `${PMS_IP}:${relayPort}`) // set progress callback to relay port
-                .replace('aac_lc', 'aac');  // workaround for error -> Unknown decoder 'aac_lc'
+            var replaced = v.replace('aac_lc', 'aac');  // workaround for error -> Unknown decoder 'aac_lc'
+            if (replaced.indexOf("/progress") !== -1) {
+                replaced = replaced.replace(`127.0.0.1:${PMS_PORT}`, `${PMS_IP}:${relayPort}`); // set progress callback to relay port
+            } else {
+                replaced = replaced.replace("127.0.0.1:", `${PMS_IP}:`);
+            }
+            return replaced;
         })
     
         if (TRANSCODER_VERBOSE == '1') {
