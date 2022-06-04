@@ -96,6 +96,7 @@ services:
       TZ: Europe/London
       ORCHESTRATOR_URL: http://plex-orchestrator:3500
       PMS_IP: 192.168.2.1
+      PMS_PORT: 32400
       TRANSCODE_OPERATING_MODE: both #(local|remote|both)
       TRANSCODER_VERBOSE: "1"   # 1=verbose, 0=silent
     healthcheck:
@@ -284,6 +285,7 @@ The image extends the [LinuxServer Plex](https://hub.docker.com/r/linuxserver/pl
 | :----: | --- |
 | `ORCHESTRATOR_URL` | The url where the orchestrator service can be reached (ex: http://plex-orchestrator:3500) |
 | `PMS_IP` | IP pointing at the Plex instance (can be the cluster IP) |
+| `PMS_PORT` | Port used by Plex (default 32400) |
 | `TRANSCODE_EAE_LOCALLY` | Force media which requires EasyAudioEncoder to transcode locally |
 | `TRANSCODE_OPERATING_MODE` | "local" => only local transcoding (no workers), "remote" => only remote workers transcoding, "both" (default) => Remote first, local if it fails |
 | `TRANSCODER_VERBOSE` | "0" (default) => info level, "1" => debug logging |
