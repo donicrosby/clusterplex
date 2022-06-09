@@ -24,18 +24,9 @@ const { spawn } = require('child_process');
 
 var jobPoster = require('./jobPoster')
 
-// -- Relay proxy setup -- 
-var proxy = require('express-http-proxy');
-var app = require('express')();
-var server = require('http').createServer(app);
-app.use('/', proxy(`${PMS_IP}:${PMS_PORT}`));
-server.listen(0, () => {
-    console.log(`Relay Server listening on port ${server.address().port}`);
-    doTranscode(server.address().port);
-});
-// -----------------------
-  
-function doTranscode(relayPort) {
+doTranscode();
+
+function doTranscode() {
     if (TRANSCODE_OPERATING_MODE == 'local') {
         transcodeLocally(process.cwd(), process.argv.slice(2), process.env)
     } else if (TRANSCODE_EAE_LOCALLY && process.argv.slice(2).filter(s => s.includes('eae_prefix')).length > 0) {
@@ -51,11 +42,7 @@ function doTranscode(relayPort) {
     
         let newArgs = process.argv.slice(2).map((v) => {
             var replaced = v.replace('aac_lc', 'aac');  // workaround for error -> Unknown decoder 'aac_lc'
-            if (replaced.indexOf("/progress") !== -1) {
-                replaced = replaced.replace(`127.0.0.1:${PMS_PORT}`, `${PMS_IP}:${relayPort}`); // set progress callback to relay port
-            } else {
-                replaced = replaced.replace("127.0.0.1:", `${PMS_IP}:`);
-            }
+            replaced = replaced.replace(`127.0.0.1:${PMS_PORT}`, `${PMS_IP}:32499`); // set progress callback to relay port
             return replaced;
         })
     

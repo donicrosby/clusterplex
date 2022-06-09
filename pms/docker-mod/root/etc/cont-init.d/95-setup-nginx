@@ -1,0 +1,7 @@
+#!/usr/bin/with-contenv bash
+
+echo "**** unlink nginx default ****"
+unlink /etc/nginx/sites-enabled/default
+echo "**** link nginx reverse-proxy ****"
+ln -s /etc/nginx/sites-available/reverse-proxy.conf /etc/nginx/sites-enabled/reverse-proxy.conf
+
