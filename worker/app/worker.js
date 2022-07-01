@@ -4,6 +4,7 @@ const STAT_CPU_OPS_DURATION = process.env.STAT_CPU_OPS_DURATION || 1000
 const ORCHESTRATOR_URL = process.env.ORCHESTRATOR_URL || 'http://localhost:3500'
 const TRANSCODER_PATH = process.env.TRANSCODER_PATH || '/usr/lib/plexmediaserver/'
 const TRANSCODER_NAME = process.env.TRANSCODER_NAME || 'Plex Transcoder'
+const TRANSCODER_CODEC_OVERRIDE = process.env.TRANSCODER_CODEC_OVERRIDE || false
 // hwaccel decoder: https://trac.ffmpeg.org/wiki/HWAccelIntro
 const FFMPEG_HWACCEL = process.env.FFMPEG_HWACCEL || false
 
@@ -14,6 +15,8 @@ var cpuStat = require('cpu-stat');
 const { spawn, exec } = require('child_process');
 const { v4: uuid } = require('uuid');
 const { fib, dist } = require('cpu-benchmark');
+const YAML = require('yaml');
+const fs = require('fs');
 
 var ON_DEATH = require('death')({debug: true})
 
@@ -24,6 +27,19 @@ let cpuUsage = 9999.0;
 const ops = dist(STAT_CPU_OPS_DURATION)
 console.log(`Computed CPU ops => ${ops}`)
 
+var codec_mapping;
+if (TRANSCODER_CODEC_OVERRIDE != false) {
+  try {
+    const yaml_data = fs.readFileSync(TRANSCODER_CODEC_OVERRIDE, 'utf8');
+    codec_mapping = YAML.parse(file);
+  } catch (err) {
+    console.error("Could not open codec override using default");
+    codec_mapping = {video:{}};
+  }
+}
+
+
+
 // healthcheck endpoint
 app.get('/health', (req, res) => {
   res.send('Healthy');
@@ -32,7 +48,7 @@ app.get('/health', (req, res) => {
 server.listen(LISTENING_PORT, () => {
     console.log(`Worker listening on port ${LISTENING_PORT}`)
 });
-  
+
 // calculate cpu usage every 2 seconds
 setInterval( () => {
     cpuStat.usagePercent({ sampleMs: STAT_CPU_INTERVAL }, (err, percent, seconds) => {
@@ -52,7 +68,7 @@ console.debug(`Initializing Worker ${workerId}|${process.env.HOSTNAME}`)
 
 socket.on('connect', () => {
     console.log(`Worker connected on socket ${socket.id}`)
-    socket.emit('worker.announce', 
+    socket.emit('worker.announce',
     {
         workerId: workerId,
         host: process.env.HOSTNAME
@@ -66,6 +82,16 @@ function processEnv(env) {
     newEnv.PLEX_MEDIA_SERVER_INFO_MODEL = process.env.PLEX_MEDIA_SERVER_INFO_MODEL
     newEnv.FFMPEG_EXTERNAL_LIBS = process.env.FFMPEG_EXTERNAL_LIBS
     return newEnv
+}
+
+function getVideoCodecPos(args) {
+  var long_vc = args.indexOf('-codec:v');
+  var short_vc = args.indexOf('-c:v');
+  if ( long_vc != -1) {
+    return long_vc
+  } else {
+    return short_vc
+  }
 }
 
 socket.on('worker.task.request', taskRequest => {
@@ -93,6 +119,16 @@ socket.on('worker.task.request', taskRequest => {
             } else {
                 taskRequest.payload.args.unshift('-hwaccel', FFMPEG_HWACCEL)
             }
+        }
+
+        if (TRANSCODER_CODEC_OVERRIDE != false) {
+          let i = getVideoCodecPos(taskRequest.payload.args)
+          if (i > 0) {
+            let cur_codec = taskRequest.payload.args[i+1];
+            let new_codec = codec_mapping.video[cur_codec] || cur_codec;
+            console.log(`Setting vcodec from ${cur_codec} to ${new_codec}`)
+            taskRequest.payload.args[i+1] = new_codec;
+          }
         }
 
         child = spawn(TRANSCODER_PATH + TRANSCODER_NAME, taskRequest.payload.args, {
@@ -127,7 +163,7 @@ socket.on('worker.task.request', taskRequest => {
         console.log('Removing process from taskMap')
         taskMap.delete(taskRequest.taskId)
     })
-    
+
     child.on('close', completionHandler)
     child.on('exit', completionHandler)
 
